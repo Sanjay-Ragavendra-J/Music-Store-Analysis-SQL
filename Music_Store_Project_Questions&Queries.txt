@@ -1,0 +1,129 @@
+1. Who is the seniormost employee based on job title?
+
+SELECT * FROM employee
+ORDER BY levels DESC
+LIMIT 1;
+
+
+
+2. Which countries have the most invoices?
+
+SELECT billing_country, COUNT(*) FROM invoice
+GROUP BY billing_country
+ORDER BY COUNT(*) DESC;
+
+
+
+3. What are the top 3 values of total invoice?
+
+SELECT total FROM invoice
+ORDER BY total DESC
+LIMIT 3;
+
+
+
+4. Which city has the best customers? We would like to throw a promotional Music Festival in the city we made the most money. Write a query that returns one city that has the highest sum of invoice totals. Return both the city name & sum of all invoice totals.
+
+SELECT billing_city, SUM(total) AS invoice_total FROM invoice
+GROUP BY billing_city
+ORDER BY invoice_total DESC
+LIMIT 1;
+
+
+
+5. Who is the best customer? The customer who has spent the most money will be declared the best customer. Write a query that returns the person who has spent the most money.
+
+SELECT c.customer_id, c.first_name, c.last_name, SUM(i.total) AS total_amount_spent
+FROM customer c
+INNER JOIN invoice i
+ON c.customer_id = i.customer_id
+GROUP BY c.customer_id
+ORDER BY total_amount_spent DESC
+LIMIT 1;
+
+
+
+6. Return email, first name, last name and genre of all rock music listeners in the alphabetical order of email.
+
+SELECT DISTINCT c.email, c.first_name, c.last_name, g.genre_id
+FROM customer c
+INNER JOIN invoice i ON c.customer_id = i.customer_id
+INNER JOIN invoice_line il ON i.invoice_id = il.invoice_id
+INNER JOIN track t ON il.track_id = t.track_id
+INNER JOIN genre g ON t.genre_id = g.genre_id
+WHERE g.genre_id::int = 1
+ORDER BY email ASC;
+
+
+
+7.  Let's invite the artists who have written the most rock music in our dataset. Write a query that returns the artist name and total track count of the top 10 rock bands.
+
+SELECT a.name, COUNT(DISTINCT(t.track_id)) AS total_track_count
+FROM artist a
+INNER JOIN album ab ON a.artist_id = ab.artist_id
+INNER JOIN track t ON ab.album_id = t.album_id
+INNER JOIN genre g ON t.genre_id = g.genre_id
+WHERE g.genre_id::int = 1
+GROUP BY a.name
+ORDER BY total_track_count DESC
+LIMIT 10;
+
+
+
+8. Return all the track names that have a song length longer than the average song length. Return the name and milliseconds for each track. Order by the song length, with the longest songs listed first.
+
+SELECT name, milliseconds FROM track
+WHERE milliseconds > (SELECT AVG(milliseconds) FROM track)
+ORDER BY milliseconds DESC;
+
+
+
+9. Find how much amount spent by each customer on artists. Return customer name, artist name and total spent.
+
+SELECT CONCAT(c.first_name,c.last_name) AS customer_name, a.name,SUM(il.unit_price * il.quantity) AS total_amount_spent
+FROM customer c
+INNER JOIN invoice i ON c.customer_id = i.customer_id
+INNER JOIN invoice_line il ON i.invoice_id = il.invoice_id
+INNER JOIN track t ON il.track_id = t.track_id
+INNER JOIN album ab ON t.album_id = ab.album_id
+INNER JOIN artist a ON ab.artist_id = a.artist_id
+GROUP BY 1,2
+ORDER BY 1;	
+
+
+
+10.  We want to find out the most popular music Genre for each country. We determine the most popular genre as the genre with the highest amount of purchases. Write a query that returns each country along with the top Genre. For countries where the maximum number of purchases is shared, return all genres which have purchases equal to the maximum number of purchases.
+
+WITH cte AS
+  (
+	SELECT i.billing_country AS country, g.name AS genre_name, SUM(il.quantity),
+	DENSE_RANK() OVER(PARTITION BY i.billing_country ORDER BY SUM(il.quantity) DESC) AS q_rank
+	FROM invoice i
+	INNER JOIN invoice_line il ON i.invoice_id = il.invoice_id
+	INNER JOIN track t ON il.track_id = t.track_id
+	INNER JOIN genre g ON t.genre_id = g.genre_id
+	GROUP BY 1,2
+  )
+
+SELECT country, genre_name AS top_genre 
+FROM cte
+WHERE q_rank = 1
+GROUP BY 1,2;
+
+
+
+11. Write a query that determines the customer that has spent the most on music for each country. Return the country along with the top customer and how much they spent. For countries where the top amount spent is shared, provide all customers who spent this amount.
+
+WITH cte AS
+  (
+    	SELECT c.country, CONCAT(c.first_name,c.last_name) AS customer_name, SUM(i.total) AS amount_spent,
+   	DENSE_RANK() OVER(PARTITION BY c.country ORDER BY SUM(i.total) DESC) as t_rank
+   	FROM customer c
+   	INNER JOIN invoice i ON c.customer_id = i.customer_id
+   	GROUP BY 1,2
+  )	
+	
+SELECT country, customer_name, amount_spent
+FROM cte
+WHERE t_rank = 1
+GROUP BY 1,2,3;				
